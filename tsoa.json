@@ -1,0 +1,19 @@
+{
+  "entryFile": "src/index.ts",
+  "noImplicitAdditionalProperties": "throw-on-extras",
+  "controllerPathGlobs": ["src/controllers/**/*.ts", "dist/controllers/**/*.js"],
+  "spec": {
+    "outputDirectory": "dist",
+    "specVersion": 3,
+    "yaml": false,
+    "outputFile": "openapi.json",
+    "basePath": "/api"
+
+  },
+  "routes": {
+    "routesDir": "src/routes",
+    "authenticationModule": "src/auth/auth.ts",
+    "injectExpress": false
+  },
+  "outputDirectory": "dist"
+}
