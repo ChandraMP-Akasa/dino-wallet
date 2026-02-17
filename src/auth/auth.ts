@@ -1,10 +1,11 @@
 // src/auth/auth.ts
-import e from "express";
 import express from "express";
 import jwt from "jsonwebtoken";
-import jwtsecret from "./keys/jwt-secret";
 
-const secret = process.env.JWT_SECRET || jwtsecret;
+const secret = process.env.JWT_SECRET;
+if (!secret) {
+  throw new Error("JWT_SECRET environment variable is not set");
+}
 
 //Basic Implementation
 export async function expressAuthentication(
@@ -83,6 +84,9 @@ function extractBearerToken(req: express.Request): string | null {
 
 function verifyJwt(token: string) {
   try {
+    if (!secret) {
+      throw new Error("JWT_SECRET is not configured");
+    }
     const payload = jwt.verify(token, secret, {
       algorithms: ["HS256"], // force algorithm
     });

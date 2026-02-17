@@ -25,7 +25,13 @@ app.set('trust proxy', true);
 app.use(helmet());
 
 // 3. cors
-app.use(cors({ origin: true, credentials: true }));
+// app.use(cors({ origin: true, credentials: true })); //Allow all origins 
+app.use(cors({
+  origin: ["http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false //Set to true if you need to send cookies from the frontend
+}));  
 
 // 4. body parsing
 app.use(express.json());
