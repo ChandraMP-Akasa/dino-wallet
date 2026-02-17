@@ -8,7 +8,7 @@
     "tsoa:routes": "tsoa routes",
     "tsoa:gen": "npm run tsoa:spec && npm run tsoa:routes",
     "dev": "npm run tsoa:gen && ts-node-dev --respawn --transpile-only --pretty src/index.ts",
-    "watch:tsoa": "chokidar \"src/controllers/**/*.ts\" -c \"npm run tsoa:routes\"",
+    "watch:tsoa": "chokidar \"src/controllers/**/*.ts\" -c \"npm run tsoa:gen\"",
     "dev:all": "concurrently \"npm run watch:tsoa\" \"npm run dev\"",
     "build": "npm run tsoa:gen && tsc -p tsconfig.json",
     "start": "node dist/index.js",

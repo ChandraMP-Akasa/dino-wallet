@@ -198,13 +198,13 @@ export function apiLogger(opts: ApiLoggerOptions = {}) {
       try {
         if (metadata.level === "error" && logger?.error) {
           logger.error("HTTP " + metadata.statusCode, metadata);
-          console.error("Body - " + response.body)
+          // console.error("Body - " + response.body)
         } else if (metadata.level === "warn" && logger?.warn) {
           logger.warn("HTTP " + metadata.statusCode, metadata);
-          console.warn("Body - " + response.body)
+          // console.warn("Body - " + response.body)
         } else {
           logger?.info?.("HTTP " + metadata.statusCode, metadata);
-          console.info("Body - " + response.body)
+          // console.info("Body - " + response.body)
         }
       } catch (err) {
         // ensure logging failure doesn't crash app

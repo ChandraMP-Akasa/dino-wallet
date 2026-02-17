@@ -1,31 +1,27 @@
 import { Request, Response, NextFunction } from "express";
-
-export interface HttpException extends Error {
-  statusCode?: number;
-  details?: unknown;
-}
+import { ValidateError } from "tsoa";
 
 export function exceptionFilter() {
-  return (err: HttpException, req: Request, res: Response, _next: NextFunction) => {
-    const status = err.statusCode || 500;
+  return (err: any, req: Request, res: Response, _next: NextFunction) => {
 
-    const errorResponse = {
-      timestamp: new Date().toISOString(),
-      path: req.originalUrl,
-      method: req.method,
-      message: err.message || "Internal server error",
-      details: err.details || null,
-      statusCode: status
-    };
+    // 1️⃣ TSOA validation errors
+    if (err instanceof ValidateError) {
+      return res.status(400).json({
+        status: 400,
+        message: "Validation failed",
+        errors: err.fields
+      });
+    }
 
-    // Log error server-side (can be replaced with Winston/Pino etc.)
-    console.error("[ERROR]", {
-      message: err.message,
-      stack: err.stack,
-      path: req.originalUrl,
-      method: req.method
+    // 2️⃣ Authentication / custom errors
+    const status =
+      err.status ||
+      err.statuscode ||
+      500;
+
+    return res.status(status).json({
+      status,
+      message: err.message || "Internal Server Error"
     });
-
-    res.status(status).json(errorResponse);
   };
 }

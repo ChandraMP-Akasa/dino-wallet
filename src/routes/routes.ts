@@ -55,7 +55,7 @@ export function RegisterRoutes(app: Router) {
                 request: {"in":"request","name":"request","required":true,"dataType":"object"},
         };
         app.get('/users',
-            authenticateMiddleware([{"basic":[]}]),
+            authenticateMiddleware([{"BasicAuth":[]}]),
             ...(fetchMiddlewares<RequestHandler>(UserController)),
             ...(fetchMiddlewares<RequestHandler>(UserController.prototype.getUsers)),
 
@@ -85,7 +85,7 @@ export function RegisterRoutes(app: Router) {
         const argsUserController_getUserById: Record<string, TsoaRoute.ParameterSchema> = {
                 id: {"in":"path","name":"id","required":true,"dataType":"double"},
         };
-        app.get('/users/:id',
+        app.get('/users/by/:id',
             ...(fetchMiddlewares<RequestHandler>(UserController)),
             ...(fetchMiddlewares<RequestHandler>(UserController.prototype.getUserById)),
 
@@ -148,6 +148,7 @@ export function RegisterRoutes(app: Router) {
                 active: {"in":"query","name":"active","dataType":"boolean"},
         };
         app.get('/users/search',
+            authenticateMiddleware([{"BasicAuth":[]}]),
             ...(fetchMiddlewares<RequestHandler>(UserController)),
             ...(fetchMiddlewares<RequestHandler>(UserController.prototype.searchUsers)),
 

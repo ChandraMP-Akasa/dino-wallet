@@ -2,7 +2,7 @@
 import e from "express";
 import express from "express";
 import jwt from "jsonwebtoken";
-import { jwtsecret } from "./keys/jwt-secret";
+import jwtsecret from "./keys/jwt-secret";
 
 const secret = process.env.JWT_SECRET || jwtsecret;
 
@@ -13,9 +13,9 @@ export async function expressAuthentication(
   scopes?: string[]
 ): Promise<any> {
   try{
-    if(securityName === 'jwt'){
+    if(securityName === 'BearerAuth'){
       const authToken = extractBearerToken(request)
-      if (!authToken) {
+      if (!authToken) { 
         throw new Error("Missing or invalid Authorization header");
       }
       console.log('authToken -', authToken);
@@ -27,7 +27,7 @@ export async function expressAuthentication(
       console.log("User data:", payload);
 
       return payload;
-    }else if(securityName === 'basic'){
+    }else if(securityName === 'BasicAuth'){
       const header = request.headers.authorization;
       if (!header || !header.startsWith("Basic ")) {
         throw new Error("Missing or invalid Basic Authorization header");
@@ -58,9 +58,10 @@ export async function expressAuthentication(
         roles: ["basic-user"],
       };
     }
-  }catch(error){
-    console.error(`Error Occured while trying to Authenticate - ${error}`)
-    return null;
+  }catch (err: any) {
+    console.error("Authentication failed:", err.message);
+    err.status = 401;
+    throw err;
   }
 }
 
@@ -73,11 +74,11 @@ function extractBearerToken(req: express.Request): string | null {
       const [scheme, token] = parts;  
       if (!/^Bearer$/i.test(scheme)) return null;
       return token || null;
-  }catch(error){
-    console.error('Failed to extractBearerToken with error -' + error);
-    return null;
+  }catch(err: any){
+    console.error('Failed to extractBearerToken with error -', err.message);
+    err.status = 401;
+    throw err;
   }
-  
 }
 
 function verifyJwt(token: string) {
@@ -88,6 +89,7 @@ function verifyJwt(token: string) {
     return payload as any; // cast to your interface
   } catch (err: any) {
     console.error("JWT verification failed:", err.message);
-    return null;
+    err.status = 401;
+    throw err;
   }
 }

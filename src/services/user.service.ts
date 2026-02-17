@@ -34,7 +34,7 @@ export async function getUserById(id: number): Promise<UserDTO | null> {
 
 export async function createUser(payload: CreateUserRequest): Promise<UserDTO> {
   if (!payload?.name) {
-    throw { statusCode: 400, message: "Name is required" };
+    throw { status: 400, message: "Name is required" };
   }
   const newUser: UserDTO = {
     id: Math.floor(Math.random() * 1000000),
@@ -45,8 +45,8 @@ export async function createUser(payload: CreateUserRequest): Promise<UserDTO> {
 
 export async function searchUser(id: number, age?: number, active?: boolean): Promise<object>{
   return {
-    status: 'success',
-    statuscode: 200,
+    message: 'success',
+    status: 200,
     data: true
   };
 }

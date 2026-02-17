@@ -25,7 +25,7 @@ searchUser,
 @Tags("Users")
 export class UserController extends Controller {
 
-  @Security('basic')
+  @Security("BasicAuth")
   @Get("/")
   public async getUsers(@Request() request: any): Promise<object> {
     // THIS retrieves the object returned by expressAuthentication()
@@ -39,7 +39,7 @@ export class UserController extends Controller {
     return getAllUsers();
   }
 
-  @Get("/{id}")
+  @Get("/by/{id}")
   @Response(404, "Not Found")
   public async getUserById(@Path() id: number): Promise<UserDTO> {
     const user = await getUserById(Number(id));
@@ -58,6 +58,7 @@ export class UserController extends Controller {
     return created;
   }
 
+  @Security("BasicAuth")
   @Get("/search")
   public async searchUsers(
     @Query() id: number,
