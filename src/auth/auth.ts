@@ -1,6 +1,9 @@
 // src/auth/auth.ts
 import express from "express";
 import jwt from "jsonwebtoken";
+import { dbQuery } from "../config/query";
+import { authCheck } from "../queries/sql";
+import { comparePassword } from "../utils/hashing";
 
 const secret = process.env.JWT_SECRET;
 if (!secret) {
@@ -37,26 +40,44 @@ export async function expressAuthentication(
       let decoded = "";
       try {
         decoded = Buffer.from(base64Credentials, "base64").toString("utf8");
-      } catch {
-        throw new Error("Invalid Basic Auth encoding");
+      } catch (err: any) {
+        const error: any = new Error("Invalid Basic Auth encoding");
+        error.status = 401;
+        throw error;
       }
       const [username, password] = decoded.split(":");
 
       if (!username || !password) {
-        throw new Error("Invalid Basic Auth format");
+        const error: any = new Error("Invalid Basic Auth format");
+        error.status = 401;
+        throw error;
       }
       console.log("Basic credentials received:", { username });
+      const loginInput = username.trim().toLowerCase();
+      const users: any = await dbQuery(
+        authCheck,
+        [loginInput, loginInput]
+      );
 
-      // TODO: Replace with your DB lookup or real auth logic
-      const VALID_USER = "admin";
-      const VALID_PASS = "secret123";
-
-      if (username !== VALID_USER || password !== VALID_PASS) {
-        throw new Error("Invalid username or password");
+      if (!users || users.length === 0) {
+        const error: any = new Error("Invalid username or password");
+        error.status = 401;
+        throw error;
       }
+
+      const user = users[0];
+       const isMatch = await comparePassword(password, user.password_hash);
+      if (!isMatch) {
+        const error: any = new Error("Invalid username or password");
+        error.status = 401;
+        throw error;
+      }
+
       return {
-        username,
-        roles: ["basic-user"],
+        id: user.id,
+        username: user.username,
+        role: user.type,
+        email: user.email
       };
     }
   }catch (err: any) {

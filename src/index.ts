@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
-
+import { closePool } from "./config/db";
 import { apiLogger } from './middlewares/global-api-request-logger';
 import { exceptionFilter } from './middlewares/global-exception-filter';
 import { RegisterRoutes } from './routes/routes';
@@ -81,6 +81,19 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err);
   res.status(err.status || 500).json({ message: err.message || 'Internal error' });
 });
+
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received. Shutting down gracefully...");
+  await closePool();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log("SIGINT received. Shutting down gracefully...");
+  await closePool();
+  process.exit(0);
+});
+
 
 //Run Server
 const PORT = process.env.PORT || 8000;

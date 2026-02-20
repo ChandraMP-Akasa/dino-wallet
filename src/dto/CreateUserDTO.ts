@@ -1,4 +1,7 @@
 
 export default interface CreateUserRequest {
-  name: string;
+  username: string;
+  password: string;
+  email: string;
+  phone?: string | null;
 }

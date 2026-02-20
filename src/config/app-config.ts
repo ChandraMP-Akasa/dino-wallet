@@ -1,64 +1,76 @@
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 dotenv.config();
 
 interface DbConfig {
-    host: string;
-    port: number;
-    username: string;
-    password: string;
-    database: string;
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+  searchPath: string;
+  connectionLimit: number;
+  ssl?: boolean;
 }
 
 interface AppConfig {
-    db: DbConfig;
-    secrets: {
-        apiKey: string;
-        jwtSecret: string;
-    };
-    nodeEnv: string;
+  db: DbConfig;
+  jwtSecret: string;
+  nodeEnv: string;
 }
 
 class AppConfigService {
-    private config: AppConfig;
+  private config: AppConfig;
 
-    constructor() {
-        this.config = {
-            db: {
-                host: this.getEnv('DB_HOST', 'localhost'),
-                port: this.getEnvNumber('DB_PORT', 3306),
-                username: this.getEnv('DB_USERNAME', 'none'),
-                password: this.getEnv('DB_PASSWORD', ''),
-                database: this.getEnv('DB_NAME', ''),
-            },
-            secrets: {
-                apiKey: this.getEnv('API_KEY', null),
-                jwtSecret: this.getEnv('JWT_SECRET', null),
-            },
-            nodeEnv: this.getEnv('NODE_ENV', 'local'),
-        };
-    }
+  constructor() {
+    this.config = {
+      db: {
+        host: this.getEnv("DB_HOST", "localhost"),
+        port: this.getEnvNumber("DB_PORT", 5432),
+        user: this.getEnv("DB_USERNAME", ""),
+        password: this.getEnv("DB_PASSWORD", ""),
+        database: this.getEnv("DB_NAME", ""),
+        searchPath: this.getEnv("SEARCH_PATH", "dinowallet"),
+        connectionLimit: this.getEnvNumber("DB_POOL_LIMIT", 20),
+        ssl: this.getEnv("SSL", "false").toLowerCase() === "true",
+      },
+      jwtSecret: this.getRequiredEnv("JWT_SECRET"),
+      nodeEnv: this.getEnv("NODE_ENV", "local"),
+    };
+  }
 
-    private getEnv(key: string, defaultValue: any): string {
-        return process.env[key] || defaultValue;
-    }
+  private getEnv(key: string, defaultValue: string): string {
+    return process.env[key] || defaultValue;
+  }
 
-    private getEnvNumber(key: string, defaultValue: number): number {
-        const value = process.env[key];
-        return value ? parseInt(value, 10) : defaultValue;
+  private getRequiredEnv(key: string): string {
+    const value = process.env[key];
+    if (!value) {
+      throw new Error(`Missing required environment variable: ${key}`);
     }
+    return value;
+  }
 
-    public getConfig(): AppConfig {
-        return this.config;
-    }
+  private getEnvNumber(key: string, defaultValue: number): number {
+    const value = process.env[key];
+    return value ? parseInt(value, 10) : defaultValue;
+  }
 
-    public getDbConfig(): DbConfig {
-        return this.config.db;
-    }
+  public getConfig(): AppConfig {
+    return this.config;
+  }
 
-    public getSecrets() {
-        return this.config.secrets;
-    }
+  public getDbConfig(): DbConfig {
+    return this.config.db;
+  }
+
+  public getJwtSecret(): string {
+    return this.config.jwtSecret;
+  }
+
+  public isProduction(): boolean {
+    return this.config.nodeEnv === "production";
+  }
 }
 
 export default new AppConfigService();
