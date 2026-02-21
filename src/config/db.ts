@@ -13,7 +13,7 @@ const pool = new Pool({
   max: dbConfig.connectionLimit || 20,   
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  ssl: dbConfig.ssl || false, 
+  ssl: dbConfig.ssl || true, 
   options: `-c search_path=${dbConfig.searchPath || "dinowallet"}`,
 });
 
