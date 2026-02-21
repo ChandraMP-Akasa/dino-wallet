@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict r5aAB1eg1tBk8zLrU1aRmykMjYwecpauXGYWZTG0gZF3fQ3GV8om15FXZ70sT0c
-
 -- Dumped from database version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.11 (Ubuntu 16.11-0ubuntu0.24.04.1)
 
@@ -17,47 +15,6 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
-
-ALTER TABLE IF EXISTS ONLY dinowallet.wallets DROP CONSTRAINT IF EXISTS wallets_owner_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.wallets DROP CONSTRAINT IF EXISTS wallets_asset_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.orders DROP CONSTRAINT IF EXISTS orders_asset_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.ledger DROP CONSTRAINT IF EXISTS ledger_wallet_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.ledger DROP CONSTRAINT IF EXISTS ledger_order_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.conversion DROP CONSTRAINT IF EXISTS conversion_to_asset_id_fkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.conversion DROP CONSTRAINT IF EXISTS conversion_from_asset_id_fkey;
-DROP TRIGGER IF EXISTS update_users_updated_at ON dinowallet.users;
-DROP INDEX IF EXISTS dinowallet.idx_ledger_wallet;
-DROP INDEX IF EXISTS dinowallet.idx_ledger_order;
-ALTER TABLE IF EXISTS ONLY dinowallet.wallets DROP CONSTRAINT IF EXISTS wallets_pkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.wallets DROP CONSTRAINT IF EXISTS wallets_owner_type_owner_id_asset_id_key;
-ALTER TABLE IF EXISTS ONLY dinowallet.variables DROP CONSTRAINT IF EXISTS variables_pk;
-ALTER TABLE IF EXISTS ONLY dinowallet.users DROP CONSTRAINT IF EXISTS users_username_key;
-ALTER TABLE IF EXISTS ONLY dinowallet.users DROP CONSTRAINT IF EXISTS users_pkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.users DROP CONSTRAINT IF EXISTS users_email_key;
-ALTER TABLE IF EXISTS ONLY dinowallet.wallets DROP CONSTRAINT IF EXISTS owner_asset_wallet_uniquekey;
-ALTER TABLE IF EXISTS ONLY dinowallet.orders DROP CONSTRAINT IF EXISTS orders_pkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.ledger DROP CONSTRAINT IF EXISTS ledger_pk;
-ALTER TABLE IF EXISTS ONLY dinowallet.conversion DROP CONSTRAINT IF EXISTS conversion_pkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.assets DROP CONSTRAINT IF EXISTS assets_pkey;
-ALTER TABLE IF EXISTS ONLY dinowallet.assets DROP CONSTRAINT IF EXISTS assets_name_key;
-ALTER TABLE IF EXISTS dinowallet.wallets ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS dinowallet.users ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS dinowallet.assets ALTER COLUMN id DROP DEFAULT;
-DROP SEQUENCE IF EXISTS dinowallet.wallets_id_seq;
-DROP TABLE IF EXISTS dinowallet.wallets;
-DROP TABLE IF EXISTS dinowallet.variables;
-DROP SEQUENCE IF EXISTS dinowallet.users_id_seq;
-DROP TABLE IF EXISTS dinowallet.users;
-DROP TABLE IF EXISTS dinowallet.orders;
-DROP TABLE IF EXISTS dinowallet.ledger;
-DROP TABLE IF EXISTS dinowallet.conversion;
-DROP SEQUENCE IF EXISTS dinowallet.assets_id_seq;
-DROP TABLE IF EXISTS dinowallet.assets;
-DROP FUNCTION IF EXISTS dinowallet.update_updated_at_column();
-DROP TYPE IF EXISTS dinowallet.owner_type_enum;
-DROP TYPE IF EXISTS dinowallet.order_type_enum;
-DROP TYPE IF EXISTS dinowallet.order_status_enum;
 
 DROP SCHEMA IF EXISTS dinowallet;
 --
@@ -563,6 +520,4 @@ ALTER TABLE ONLY dinowallet.wallets
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict r5aAB1eg1tBk8zLrU1aRmykMjYwecpauXGYWZTG0gZF3fQ3GV8om15FXZ70sT0c
 
