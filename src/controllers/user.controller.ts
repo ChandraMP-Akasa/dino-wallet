@@ -16,7 +16,7 @@ import {
 } from "tsoa";
 import UserDTO from "../dto/UserDTO";
 import CreateUserRequest from "../dto/CreateUserDTO";
-import { getWalletLedger, getWallets } from '../services/user.service';
+import { executeOrder, getOrder, getWalletLedger, getWallets, makeOrder } from '../services/user.service';
 
 import { authenticate, createUser, getUserDetails } from '../services/user.service';
 import { RateLimit } from '../decorators/rateLimit';
@@ -59,4 +59,22 @@ export class UserController extends Controller {
     return getWalletLedger(request, walletId);
   }
 
+  //Create orders and executre transactions 
+  @Security("BearerAuth")
+  @Post("/order")
+  public async createOrder(@Request() request: any, @Body() orderRequest: any): Promise<object>{
+    return makeOrder(request, orderRequest);
+  }
+
+  @Security("BearerAuth")
+  @Get("/order/{orderId}")
+  public async completeOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
+    return getOrder(request, orderId);
+  }
+
+  @Security("BearerAuth")
+  @Get("/order/{orderId}/execute")
+  public async runExecuteOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
+    return executeOrder(request, orderId);
+  }
 }

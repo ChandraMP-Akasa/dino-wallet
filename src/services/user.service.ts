@@ -8,7 +8,7 @@ import { dbQuery } from "../config/query";
 import { authCheck, registerUser } from "../queries/sql";
 import { JsonWebTokenError } from "jsonwebtoken";
 import jwt from "jsonwebtoken";
-import { PoolClient } from "pg";
+import { Pool, PoolClient } from "pg";
 import pool from "../config/db";
 import { v4 as uuid } from "uuid";
 
@@ -341,5 +341,284 @@ export async function getWalletLedger(req: any, walletId: number): Promise<any>{
     console.error("Failed to get wallet ledger -", err.message);
     err.status = err.status || 500;
     throw err;
+  }
+}
+
+export async function makeOrder(req: any, orderRequest: any): Promise<any>{
+  const client: PoolClient = await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const userId = req.user.sub;
+    const {assetId, type, amount} = orderRequest;
+
+    if(!assetId || !type || !amount || amount <= 0 || !userId){
+      throw { status: 400, message: "Missing required order parameters" };
+    }
+    
+    const assetExists: any = await dbQuery(
+      `SELECT * FROM assets WHERE id = $1 LIMIT 1`,
+      [assetId], 3, client
+    )
+    
+    if(!assetExists || assetExists.length === 0){
+      throw { status: 400, message: "Invalid assetId" };
+    }
+
+    const orderId = uuid();
+    const insertQuery = `
+      INSERT INTO dinowallet.orders 
+        (id, user_id, asset_id, type, amount, status, attempts, expires_at)
+      VALUES 
+        ($1, $2, $3, $4, $5, 'pending', 0, NOW() + INTERVAL '10 minutes')
+      RETURNING id;
+    `;
+
+    // Create order with status 'pending'
+    const orderResult: any = await dbQuery(
+      insertQuery,
+      [orderId, userId, assetId, type, amount], 3, client
+    );
+
+    if (!orderResult || orderResult.length === 0) {
+      throw { status: 500, message: "Failed to create order" };
+    }
+    await client.query("COMMIT");
+    
+    return {
+      status: 201,
+      message: "Order created successfully",
+      orderId: orderResult[0].id
+    }
+  }catch(err: any){
+    await client.query("ROLLBACK");
+    console.error("Failed to create order - ", err.message);
+    err.status = err.status || 500;
+    throw err;
+  }finally{
+    client.release();
+  }
+}
+
+export async function getOrder(req: any, orderId: string): Promise<any>{
+  try{
+    const userId = req.user.sub;
+    if(!orderId || orderId.trim() === ""){
+      throw { status: 400, message: "Invalid orderId"}
+    }
+    const orderResult: any = await dbQuery(
+      `SELECT o.id, o.user_id, u.username, o.asset_id, a.name as asset_name, o.type, o.amount, o.status, o.attempts, o.expires_at, o.failed_reason, o.last_attempt_at, o.created_at 
+      FROM orders o
+      JOIN assets a ON o.asset_id = a.id 
+      JOIN users u ON o.user_id = u.id 
+      WHERE o.id = $1 AND o.user_id = $2`,
+      [orderId, userId]
+    );
+
+    if(!orderResult || orderResult.length === 0){
+      throw { status: 404, message: "Order not found or inaccessible" };
+    }
+    return orderResult[0];
+  }catch(err: any){
+    console.error("Failed to fetch order details -", err.message);
+    err.status = err.status || 500;
+    throw err;
+  }
+}
+
+export async function executeOrder(req: any, orderId: string): Promise<any>{
+  const client: PoolClient = await pool.connect();
+  try{
+    await client.query("BEGIN");
+
+    const userId = req.user.sub;
+    if(!orderId || orderId.trim() === "" || !userId){
+      throw { status: 400, message: "Invalid orderId or userId"}
+    }
+    
+    const orderResult: any = await dbQuery(
+      `SELECT * FROM orders 
+       WHERE id = $1 AND user_id = $2 LIMIT 1 FOR UPDATE`,
+       [orderId, userId], 3, client
+    )
+
+    if (orderResult.length === 0) {
+      throw { status: 404, message: "Order not found or inaccessible" };
+    }
+
+    const order = orderResult[0];
+
+    if (order.status === "completed") {
+      await client.query("COMMIT");
+      return { status: 200, message: "Order already completed" };
+    }
+
+    if (order.status === "failed") {
+      throw { status: 400, message: "Order already failed" };
+    }
+
+    if (order.status === "processing") {
+      throw { status: 409, message: "Order already processing" };
+    }
+
+    //Check order expiry
+    if (order.expires_at && new Date(order.expires_at) < new Date()) {
+      await dbQuery(
+        `UPDATE orders SET status = 'failed' WHERE id = $1`,
+        [orderId], 3, client
+      );
+      await client.query("COMMIT");
+      return { status: 400, message: "Order expired" };
+    }
+
+    //Check number of attempts
+    if (order.attempts >= 3) {
+      await dbQuery(
+        `UPDATE orders SET status = 'failed' WHERE id = $1`,
+        [orderId], 3, client
+      );
+      await client.query("COMMIT");
+      return { status: 400, message: "Max retry limit reached" };
+    }
+    
+    //Update the number of status and attempts for the order
+    await dbQuery(
+      `UPDATE orders SET status = 'processing', attempts = attempts + 1 WHERE id = $1 `,
+      [orderId], 3, client
+    );
+
+    const assetId = order.asset_id;
+    const amount = Number(order.amount)
+    const type = order.type;
+
+    //Lock user wallet for the asset type
+    const userWalletResult: any = await dbQuery(
+      `SELECT * FROM wallets WHERE owner_type = 'user' AND owner_id = $1 AND asset_id = $2`,
+      [userId, assetId], 3, client
+    );
+    if (userWalletResult.length === 0) {
+      throw { status: 400, message: "User wallet not found" };
+    }
+    const userWallet = userWalletResult[0];
+
+    const systemWalletResult: any = await dbQuery(
+      `SELECT * FROM wallets where owner_type = 'system' AND asset_id = $1`,
+      [assetId], 3, client
+    )
+    if (systemWalletResult.length === 0) {
+      throw { status: 400, message: "System wallet not found" };
+    }
+    const systemWallet = systemWalletResult[0];
+
+    const walletIds = [Number(systemWallet.id), Number(userWallet.id)]
+      .sort((a, b) => a - b);
+    for (const wid of walletIds) {
+      await dbQuery(
+        `SELECT id FROM wallets WHERE id = $1 FOR UPDATE`,
+        [wid],
+        3,
+        client
+      );
+    }
+
+    //Balance validation - 
+    if(type === 'spend'){
+
+        //Debit the user waller with balance check - This will ensure that we do not have negative balance in user wallet.
+        const userWalletDebit = await dbQuery(
+        `UPDATE dinowallet.wallets
+         SET balance_cached = balance_cached - $1
+         WHERE id = $2 
+         AND balance_cached >= $1 
+         returning id`,
+        [amount, userWallet.id], 3, client
+      );
+
+      if (userWalletDebit.length === 0) {
+      await dbQuery(
+        `UPDATE orders SET status = 'pending', attempts = attempts + 1 WHERE id = $1`,
+        [orderId], 3, client
+      );
+        await client.query("COMMIT");
+        return { status: 400, message: "Insufficient balance" };
+      }
+
+      //Ledger entries -> user debit
+      await dbQuery(
+        `INSERT INTO ledger 
+        (id, order_id, wallet_id, debit_amount, credit_amount, created_at)
+        VALUES
+        ($1, $2, $3, $4, 0, CURRENT_TIMESTAMP)`,
+        [uuid(), orderId, userWallet.id, amount], 3, client
+      )
+
+      //Credit system wallet 
+      await dbQuery(
+        `UPDATE wallets SET balance_cached = balance_cached + $1 WHERE id = $2`,
+        [amount, systemWallet.id], 3, client
+      );
+
+      //Ledger entries -> system credit
+      await dbQuery(
+        `INSERT INTO ledger 
+        (id, order_id, wallet_id, debit_amount, credit_amount, created_at)
+        VALUES
+        ($1, $2, $3, 0, $4, CURRENT_TIMESTAMP)`,
+        [uuid(), orderId, systemWallet.id, amount], 3, client
+      )
+    }else if(type === 'bonus' || type === 'topup'){
+
+      //Debit system wallet 
+      await dbQuery(
+        `UPDATE wallets SET balance_cached = balance_cached - $1 WHERE id = $2`,
+        [amount, systemWallet.id], 3, client
+      );
+
+      //Update ledger -> system debit
+      await dbQuery(
+        `INSERT INTO ledger (id, order_id, wallet_id, debit_amount, credit_amount, created_at)
+         VALUES ($1, $2, $3, $4, 0, CURRENT_TIMESTAMP)`,
+        [uuid(), orderId, systemWallet.id, amount],
+        3, client
+      );
+
+      //Credit user wallet
+      await dbQuery(
+        `UPDATE wallets SET balance_cached = balance_cached + $1 WHERE id = $2`,
+        [amount, userWallet.id], 3, client
+      );
+
+      //Update ledger -> User credit
+      await dbQuery(
+        `INSERT INTO ledger (id, order_id, wallet_id, debit_amount, credit_amount, created_at)
+        VALUES ($1, $2, $3, 0, $4, CURRENT_TIMESTAMP)`,
+        [uuid() , orderId, userWallet.id, amount],
+        3, client
+      );
+    }
+
+    //Mark order completed
+    await dbQuery(
+      `UPDATE orders
+       SET status = 'completed'
+       WHERE id = $1`,
+      [orderId], 3, client
+    );
+
+    await client.query("COMMIT");
+    return {
+      status: 200,
+      message: "Order executed successfully!"
+    }
+  }catch(err: any){
+    await client.query("ROLLBACK");
+    await dbQuery(
+      `UPDATE orders SET status = 'pending', attempts = attempts + 1, last_attempt_at = CURRENT_TIMESTAMP, failed_reason = $2 WHERE id = $1`,
+      [orderId, err.message]
+    );
+    console.error("Failed to execute order -", err.message);
+    err.status = err.status || 500;
+    throw err;
+  }finally{
+    client.release();
   }
 }
