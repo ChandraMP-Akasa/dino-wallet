@@ -2,7 +2,6 @@
 
 import appConfigService from "../config/app-config";
 import CreateUserRequest from "../dto/CreateUserDTO";
-import UserDTO from "../dto/UserDTO";
 import { hashPassword } from "../utils/hashing";
 import { dbQuery } from "../config/query";
 import { authCheck, registerUser } from "../queries/sql";
@@ -188,7 +187,6 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
       status: 201,
       message: "User created successfully",
       userid: result[0].id,
-      orderid: orderId
     }
 } catch (err: any) {
     await client.query("ROLLBACK");

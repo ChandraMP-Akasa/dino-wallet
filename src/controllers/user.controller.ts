@@ -1,5 +1,4 @@
 // src/controllers/user.controller.ts
-import * as express from 'express'
 import {
   Controller,
   Get,
@@ -7,14 +6,10 @@ import {
   Post,
   Body,
   Path,
-  SuccessResponse,
   Tags,
-  Response,
   Security,
-  Query,
   Request,
 } from "tsoa";
-import UserDTO from "../dto/UserDTO";
 import CreateUserRequest from "../dto/CreateUserDTO";
 import { executeOrder, getOrder, getWalletLedger, getWallets, makeOrder } from '../services/user.service';
 
@@ -61,6 +56,7 @@ export class UserController extends Controller {
 
   //Create orders and executre transactions 
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Post("/order")
   public async createOrder(@Request() request: any, @Body() orderRequest: any): Promise<object>{
     return makeOrder(request, orderRequest);
@@ -73,6 +69,7 @@ export class UserController extends Controller {
   }
 
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Get("/order/{orderId}/execute")
   public async runExecuteOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
     return executeOrder(request, orderId);
