@@ -22,14 +22,10 @@ export async function expressAuthentication(
       if (!authToken) { 
         throw new Error("Missing or invalid Authorization header");
       }
-      console.log('authToken -', authToken);
-
       const payload = verifyJwt(authToken);
       if (!payload) {
         throw new Error("Unauthorized");
       }
-      console.log("User data:", payload);
-
       return payload;
     }else if(securityName === 'BasicAuth'){
       const header = request.headers.authorization;
@@ -111,7 +107,7 @@ function verifyJwt(token: string) {
     const payload = jwt.verify(token, secret, {
       algorithms: ["HS256"], // force algorithm
     });
-    return payload as any; // cast to your interface
+    return payload as any;
   } catch (err: any) {
     console.error("JWT verification failed:", err.message);
     err.status = 401;

@@ -33,7 +33,7 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
         passwordHash,
         email,
         payload.phone || null,
-      ]
+      ], 3, client
     );
 
     if (!result || result.length === 0) {
@@ -50,7 +50,7 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
 
     //Initialize the user with 100 credits
     let initCredit = 10;
-    const initCreditResult: any = await dbQuery("select value from vairables where name = $1 limit 1", ['bonus'], 3, client);
+    const initCreditResult: any = await dbQuery("select value from variables where name = $1 limit 1", ['bonus'], 3, client);
     if(initCreditResult.length > 0){
       initCredit = initCreditResult[0].value.value;
     }
@@ -59,8 +59,12 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     //Generate a wallet for the newly registerd user
     //TODO: We have to re-calculate the balance due after making the ledger entries.
     const walletResult: any = await dbQuery(
-      `INSERT INTO WALLETS (owner_id, asset_id, balance_cached) VALUES ($1, $2, $3) RETURNING id`, 
-      [userId, assetId, initCredit, 3, client]
+      `INSERT INTO wallets (owner_type, owner_id, asset_id, balance_cached, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) 
+      ON CONFLICT (owner_type, owner_id, asset_id)
+      DO UPDATE SET owner_id = EXCLUDED.owner_id
+      RETURNING id;
+      `, 
+      ['user', userId, assetId, initCredit], 3, client
     );
 
     if (!walletResult || walletResult.length === 0) {
@@ -70,7 +74,7 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     console.log('userWallet- ', userWallet);
 
     const systemWallet: any = await dbQuery(
-      `SELECT id, balance FROM wallets WHERE owner_id IS NULL AND owner_type = $1 AND asset_id = $2 LIMIT 1`,
+      `SELECT id, balance_cached as balance FROM wallets WHERE owner_id IS NULL AND owner_type = $1 AND asset_id = $2 LIMIT 1`,
       ['system', assetId],
       3,
       client
@@ -82,14 +86,33 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     console.log('systemWallet -', sysWallet);
 
     //Generate a order;
-    const orderId = uuid();
+    let orderId = uuid();
     const orderResult: any = await dbQuery(
-      `INSERT INTO orders (id, user_id, asset_id, type, amount,  status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      `INSERT INTO orders (id, user_id, asset_id, type, amount,  status) VALUES ($1, $2, $3, $4, $5, $6) 
+      ON CONFLICT (user_id, type) 
+      DO UPDATE SET user_id = EXCLUDED.user_id 
+      RETURNING id`,
       [orderId, userId, assetId,  'bonus', initCredit, 'processing'], 3, client
     );
 
     if (!orderResult || orderResult.length === 0) {
       throw { status: 500, message: "Failed to create user order" };
+    }
+
+    console.log('orderResult -', orderResult);
+    orderId = orderResult[0].id;
+    
+    //Check if the bonus has already been granted for this order (idempotent retry)
+    const existingLedger = await dbQuery(
+      `SELECT 1 FROM ledger WHERE order_id = $1 LIMIT 1`,
+      [orderId],
+      3,
+      client
+    );
+
+    if (existingLedger.length > 0) {
+      await client.query("COMMIT");
+      return { status: 200, message: "Bonus already granted" };
     }
 
     //Ledger entries and remaining transaction -> 
@@ -99,6 +122,17 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     //4. Update balance_cached in user wallet
     //5. Update order status to completed
 
+    const walletIds = [Number(sysWallet.id), Number(userWallet.id)]
+      .sort((a, b) => a - b);
+      
+    for (const wid of walletIds) {
+      await dbQuery(
+        `SELECT id FROM wallets WHERE id = $1 FOR UPDATE`,
+        [wid],
+        3,
+        client
+      );
+    }
 
     const ledgerDebitResult: any = await dbQuery(
       `INSERT INTO ledger (id, order_id, wallet_id, debit_amount) VALUES ($1, $2, $3, $4)`,
@@ -106,8 +140,8 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     );
 
     const ledgerCreditResult: any = await dbQuery(
-      `INSERT INTO ledger(id, order_id, wallet_id, credit_amount) VALUES ($1, $2, $3, $4)`,
-      [uuid(), orderId, userWallet.id, initCredit]
+      `INSERT INTO ledger (id, order_id, wallet_id, credit_amount) VALUES ($1, $2, $3, $4)`,
+      [uuid(), orderId, userWallet.id, initCredit], 3, client
     );
 
     // Update the system wallet balance
@@ -156,14 +190,38 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
       userid: result[0].id,
       orderid: orderId
     }
-  } catch (err: any) {
+} catch (err: any) {
     await client.query("ROLLBACK");
-    // PostgreSQL duplicate key error
+
     if (err.code === "23505") {
-      throw { status: 409, message: "Username or email already exists" };
+      // Username or email duplicate
+      if (
+        err.constraint === "users_username_key" ||
+        err.constraint === "users_email_key"
+      ) {
+        throw { status: 409, message: "Username or email already exists" };
+      }
+
+      // Bonus already granted (idempotent retry)
+      if (err.constraint === "unique_bonus_per_user") {
+        return {
+          status: 200,
+          message: "Bonus already granted",
+        };
+      }
+
+      // Wallet already exists (idempotent retry)
+      if (err.constraint === "wallets_owner_type_owner_id_asset_id_key") {
+        // Safe retry case
+        return {
+          status: 200,
+          message: "Wallet already exists",
+        };
+      }
     }
     throw { status: 500, message: "Failed to create user" };
-  }finally {
+  }
+  finally {
     client.release();
   }
 }
@@ -204,31 +262,84 @@ export async function authenticate(req: any): Promise<any>{
   }
 }
 
-// export async function getAllUsers(): Promise<UserDTO[]> {
-//   const  config = appConfigService.getConfig();
-//   const secrets = appConfigService.getSecrets();
+export async function getUserDetails(req: any): Promise<any>{
+  console.log("get User details -", req.user);  
+  //I want to get the wallets with asset type, and orders
+  try{
+    const userId = req.user.sub;
+    //Get the user wallets
+    const walletResult: any = await dbQuery(
+      `SELECT w.id, w.asset_id, a.name as asset_name, w.balance_cached, w.created_at  
+        FROM wallets w 
+        JOIN assets a ON w.asset_id = a.id
+        WHERE w.owner_type = 'user' AND w.owner_id = $1`,
+      [userId]
+    );
 
-//   console.log('dbConfig -', config.db);
-//   console.log('secrets -', config.secrets);
-//   console.log('env -', config.nodeEnv)
-//   return [
-//     { id: 1, name: "Chandra" },
-//     { id: 2, name: "John Doe" },
-//   ];
-// }
+    const wallets = walletResult || [];
 
-// export async function getUserById(id: number): Promise<UserDTO | null> {
-//   const users = await getAllUsers();
-//   const u = users.find((x) => x.id === Number(id)) ?? null;
-//   console.warn('user -', u)
-//   return u;
-// }
+    //Get all user orders
+    const orderResults = await dbQuery(
+      `
+      SELECT o.id, o.asset_id, a.name as asset_name, o.amount, o.status, o.created_at
+      FROM orders o
+      JOIN assets a ON o.asset_id = a.id
+      WHERE o.user_id = $1`,
+      [userId]
+    )
 
+    const orders = orderResults || [];
+    return {
+      user: req.user,
+      wallets: wallets,
+      orders: orders
+    };
+  }catch(err: any){
+    console.error("Failed to get user details -", err.message);
+    err.status = err.status || 500;
+    throw err;
+  }
+}
 
-// export async function searchUser(id: number, age?: number, active?: boolean): Promise<object>{
-//   return {
-//     message: 'success',
-//     status: 200,
-//     data: true
-//   };
-// }
+export async function getWallets(req: any, assetId: number): Promise<any>{
+  try{
+    const userId = req.user.sub;
+    const walletResult: any = await dbQuery(
+      `SELECT w.id, w.asset_id, a.name as asset_name, w.balance_cached, w.created_at  
+        FROM wallets w 
+        JOIN assets a ON w.asset_id = a.id
+        WHERE w.owner_type = 'user' AND w.owner_id = $1 AND w.asset_id = $2 LIMIT 1`,
+      [userId, assetId]
+    );
+    return walletResult[0] || [];  
+  }catch(err: any){
+    console.error("Failed to get user wallets -", err.message);
+    err.status = err.status || 500;
+    throw err;
+  }
+}
+
+export async function getWalletLedger(req: any, walletId: number): Promise<any>{
+  try{
+    const userId = req.user.sub;
+    // check if the wallet belongs to the user first
+    const walletResult: any = await dbQuery(
+      `SELECT id FROM wallets WHERE id = $1 AND owner_type = 'user' AND owner_id = $2 LIMIT 1`,
+      [walletId, userId]
+    )
+    if (!walletResult || walletResult.length === 0) {
+      throw { status: 404, message: "Wallet not found or inaccessible" };
+    }
+    // If wallet exists and belongs to user, return ledger entries
+    const ledgerResult: any = await dbQuery(
+      `SELECT * FROM ledger WHERE wallet_id = $1 ORDER BY created_at DESC`,
+      [walletId]
+    );
+    return ledgerResult;
+
+  }catch(err: any){
+    console.error("Failed to get wallet ledger -", err.message);
+    err.status = err.status || 500;
+    throw err;
+  }
+}
