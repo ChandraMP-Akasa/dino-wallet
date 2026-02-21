@@ -34,9 +34,6 @@ RUN npm install --omit=dev
 # Copy build output from builder
 COPY --from=builder /app/dist ./dist
 
-# If your TSOA outputs swagger.json/openapi.json at root of dist
-COPY --from=builder /app/dist/swagger.json ./dist/swagger.json
-
 # Copy any required runtime assets (if any)
 # COPY --from=builder /app/src/auth/keys ./keys  # (only if needed; recommended NOT to bake keys in image)
 

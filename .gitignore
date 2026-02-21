@@ -16,6 +16,7 @@ yarn-error.log
 *.swo
 *~
 .DS_Store
+.venv/
 
 # Build output
 dist/

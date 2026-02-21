@@ -1,10 +1,14 @@
 // src/auth/auth.ts
-import e from "express";
 import express from "express";
 import jwt from "jsonwebtoken";
-import { jwtsecret } from "./keys/jwt-secret";
+import { dbQuery } from "../config/query";
+import { authCheck } from "../queries/sql";
+import { comparePassword } from "../utils/hashing";
 
-const secret = process.env.JWT_SECRET || jwtsecret;
+const secret = process.env.JWT_SECRET;
+if (!secret) {
+  throw new Error("JWT_SECRET environment variable is not set");
+}
 
 //Basic Implementation
 export async function expressAuthentication(
@@ -13,21 +17,17 @@ export async function expressAuthentication(
   scopes?: string[]
 ): Promise<any> {
   try{
-    if(securityName === 'jwt'){
+    if(securityName === 'BearerAuth'){
       const authToken = extractBearerToken(request)
-      if (!authToken) {
+      if (!authToken) { 
         throw new Error("Missing or invalid Authorization header");
       }
-      console.log('authToken -', authToken);
-
       const payload = verifyJwt(authToken);
       if (!payload) {
         throw new Error("Unauthorized");
       }
-      console.log("User data:", payload);
-
       return payload;
-    }else if(securityName === 'basic'){
+    }else if(securityName === 'BasicAuth'){
       const header = request.headers.authorization;
       if (!header || !header.startsWith("Basic ")) {
         throw new Error("Missing or invalid Basic Authorization header");
@@ -36,31 +36,50 @@ export async function expressAuthentication(
       let decoded = "";
       try {
         decoded = Buffer.from(base64Credentials, "base64").toString("utf8");
-      } catch {
-        throw new Error("Invalid Basic Auth encoding");
+      } catch (err: any) {
+        const error: any = new Error("Invalid Basic Auth encoding");
+        error.status = 401;
+        throw error;
       }
       const [username, password] = decoded.split(":");
 
       if (!username || !password) {
-        throw new Error("Invalid Basic Auth format");
+        const error: any = new Error("Invalid Basic Auth format");
+        error.status = 401;
+        throw error;
       }
       console.log("Basic credentials received:", { username });
+      const loginInput = username.trim().toLowerCase();
+      const users: any = await dbQuery(
+        authCheck,
+        [loginInput, loginInput]
+      );
 
-      // TODO: Replace with your DB lookup or real auth logic
-      const VALID_USER = "admin";
-      const VALID_PASS = "secret123";
-
-      if (username !== VALID_USER || password !== VALID_PASS) {
-        throw new Error("Invalid username or password");
+      if (!users || users.length === 0) {
+        const error: any = new Error("Invalid username or password");
+        error.status = 401;
+        throw error;
       }
+
+      const user = users[0];
+       const isMatch = await comparePassword(password, user.password_hash);
+      if (!isMatch) {
+        const error: any = new Error("Invalid username or password");
+        error.status = 401;
+        throw error;
+      }
+
       return {
-        username,
-        roles: ["basic-user"],
+        id: user.id,
+        username: user.username,
+        role: user.type,
+        email: user.email
       };
     }
-  }catch(error){
-    console.error(`Error Occured while trying to Authenticate - ${error}`)
-    return null;
+  }catch (err: any) {
+    console.error("Authentication failed:", err.message);
+    err.status = 401;
+    throw err;
   }
 }
 
@@ -73,21 +92,25 @@ function extractBearerToken(req: express.Request): string | null {
       const [scheme, token] = parts;  
       if (!/^Bearer$/i.test(scheme)) return null;
       return token || null;
-  }catch(error){
-    console.error('Failed to extractBearerToken with error -' + error);
-    return null;
+  }catch(err: any){
+    console.error('Failed to extractBearerToken with error -', err.message);
+    err.status = 401;
+    throw err;
   }
-  
 }
 
 function verifyJwt(token: string) {
   try {
+    if (!secret) {
+      throw new Error("JWT_SECRET is not configured");
+    }
     const payload = jwt.verify(token, secret, {
       algorithms: ["HS256"], // force algorithm
     });
-    return payload as any; // cast to your interface
+    return payload as any;
   } catch (err: any) {
     console.error("JWT verification failed:", err.message);
-    return null;
+    err.status = 401;
+    throw err;
   }
 }

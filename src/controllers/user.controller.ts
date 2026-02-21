@@ -1,5 +1,4 @@
 // src/controllers/user.controller.ts
-import * as express from 'express'
 import {
   Controller,
   Get,
@@ -7,63 +6,86 @@ import {
   Post,
   Body,
   Path,
-  SuccessResponse,
   Tags,
-  Response,
   Security,
-  Query,
   Request,
 } from "tsoa";
-import UserDTO from "../dto/UserDTO";
 import CreateUserRequest from "../dto/CreateUserDTO";
-import {
-getAllUsers, getUserById, createUser,
-searchUser,
-} from "../services/user.service";
+import { convertAsset, executeOrder, getOrder, getWalletLedger, getWallets, makeOrder, topup } from '../services/user.service';
+
+import { authenticate, createUser, getUserDetails } from '../services/user.service';
+import { RateLimit } from '../decorators/rateLimit';
 
 @Route("users")
 @Tags("Users")
 export class UserController extends Controller {
 
-  @Security('basic')
-  @Get("/")
-  public async getUsers(@Request() request: any): Promise<object> {
-    // THIS retrieves the object returned by expressAuthentication()
-    const authUser = request.user;
-    if(!authUser) return {
-      status: 'failed',
-      statuscode: 500,
-      message: `Failed to authenticate the user! Please provice correct username or password.`
-    }
-    console.log('authUser -', authUser);
-    return getAllUsers();
+  @Post('/register')
+  @RateLimit({ capacity: 10, refillRate: 1}) //refill per second
+  public async registerUser(@Body() requestBody: CreateUserRequest): Promise<object>{
+    return createUser(requestBody);
   }
 
-  @Get("/{id}")
-  @Response(404, "Not Found")
-  public async getUserById(@Path() id: number): Promise<UserDTO> {
-    const user = await getUserById(Number(id));
-    if (!user) {
-      this.setStatus(404);
-      throw new Error("User not found");
-    }
-    return user;
+  @Security("BasicAuth")
+  @RateLimit({ capacity: 10, refillRate: 1}) //refill per second
+  @Get("/authenticate")
+  public async authenticateUser(@Request() request: any): Promise<object>{
+    return authenticate(request);
   }
 
-  @SuccessResponse("201", "Created")
-  @Post("/")
-  public async createUser(@Body() requestBody: CreateUserRequest): Promise<UserDTO> {
-    const created = await createUser(requestBody);
-    this.setStatus(201);
-    return created;
+  @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
+  @Post('/topup')
+  public async topupCredits(@Request() request: any, @Body() topupRequest: any): Promise<object>{
+    return topup(request, topupRequest);
   }
 
-  @Get("/search")
-  public async searchUsers(
-    @Query() id: number,
-    @Query() age?: number,
-    @Query() active?: boolean
-  ): Promise<object> {
-    return searchUser( id, age, active );
+  //Get user, wallet and orders for a user
+  @Security("BearerAuth")
+  @Get("/profile")
+  public async getUserProfile(@Request() request: any): Promise<object>{
+    return getUserDetails(request);
+  }
+
+  //Get wallets for an asset type
+  @Security("BearerAuth")
+  @Get("/wallets/{assetId}")
+  public async getWalletforAsset(@Request() request: any, @Path() assetId: number): Promise<object>{
+    return getWallets(request, assetId);
+  }
+
+
+  //Get ledger for a wallet
+  @Security("BearerAuth")
+  @Get("/wallets/{walletId}/ledger")
+  public async getLedger(@Request() request: any, @Path() walletId: number): Promise<object>{
+    return getWalletLedger(request, walletId);
+  }
+
+  //Create orders and executre transactions 
+  @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
+  @Post("/order")
+  public async createOrder(@Request() request: any, @Body() orderRequest: any): Promise<object>{
+    return makeOrder(request, orderRequest);
+  }
+
+  @Security("BearerAuth")
+  @Get("/order/{orderId}")
+  public async completeOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
+    return getOrder(request, orderId);
+  }
+
+  @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
+  @Get("/order/{orderId}/execute")
+  public async runExecuteOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
+    return executeOrder(request, orderId);
+  }
+
+  @Security("BearerAuth")
+  @Post("/wallet/purchase/asset/")
+  public async purchaseAsset(@Request() request: any, @Body() purchaseBody: any): Promise<object>{
+    return convertAsset(request, purchaseBody);
   }
 }
