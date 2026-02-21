@@ -58,7 +58,7 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     //Generate a wallet for the newly registerd user
     //TODO: We have to re-calculate the balance due after making the ledger entries.
     const walletResult: any = await dbQuery(
-      `INSERT INTO wallets (owner_type, owner_id, asset_id, balance_cached, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) 
+      `INSERT INTO wallets (owner_type, owner_id, asset_id, balance_cached, created_at) VALUES ($1, $2, $3, $4, NOW()) 
       ON CONFLICT (owner_type, owner_id, asset_id)
       DO UPDATE SET owner_id = EXCLUDED.owner_id
       RETURNING id;
@@ -88,8 +88,6 @@ export async function createUser(payload: CreateUserRequest): Promise<object> {
     let orderId = uuid();
     const orderResult: any = await dbQuery(
       `INSERT INTO orders (id, user_id, asset_id, type, amount,  status) VALUES ($1, $2, $3, $4, $5, $6) 
-      ON CONFLICT (user_id, type) 
-      DO UPDATE SET user_id = EXCLUDED.user_id 
       RETURNING id`,
       [orderId, userId, assetId,  'bonus', initCredit, 'processing'], 3, client
     );
@@ -257,6 +255,119 @@ export async function authenticate(req: any): Promise<any>{
     console.error("Authentication failed:", err.message);
     err.status = 401;
     throw err;
+  }
+}
+
+export async function topup(req: any, topup: any): Promise<any>{
+  const client: PoolClient = await pool.connect();
+
+  const BASE_ASSET_ID = 1;
+
+  try {
+    await client.query("BEGIN");
+
+    const userId = req.user.sub;
+    const { amount } = topup;
+
+    if (!userId || !amount || amount <= 0) {
+      throw { status: 400, message: "Invalid topup request" };
+    }
+
+    // Fetch system base wallet and lock it
+    const systemWalletResult = await dbQuery(
+      `SELECT * FROM dinowallet.wallets
+       WHERE owner_type = 'system'
+       AND asset_id = $1
+       FOR UPDATE`,
+      [BASE_ASSET_ID], 3, client
+    );
+
+    if (systemWalletResult.length === 0) {
+      throw { status: 500, message: "System base wallet not found" };
+    }
+
+    const systemWallet = systemWalletResult[0];
+
+    // Lock user base wallet
+    const userWalletResult = await dbQuery(
+      `SELECT * FROM dinowallet.wallets
+       WHERE owner_type = 'user'
+       AND owner_id = $1 
+       AND asset_id = $2 
+       FOR UPDATE`,
+      [userId, BASE_ASSET_ID], 3, client
+    );
+
+    const userWallet = userWalletResult[0];
+
+    // Create Order (pending → processing)
+    const orderId = uuid();
+
+    await dbQuery(
+      `INSERT INTO dinowallet.orders
+       (id, user_id, asset_id, type, amount, status)
+       VALUES ($1, $2, $3, 'topup', $4, 'processing')`,
+      [orderId, userId, BASE_ASSET_ID, amount], 3, client
+    );
+
+    // Update balances (system debit, user credit)
+
+    // Debit system wallet
+    await dbQuery(
+      `UPDATE dinowallet.wallets
+       SET balance_cached = balance_cached - $1
+       WHERE id = $2`,
+      [amount, systemWallet.id], 3, client
+    );
+
+    // Credit user wallet
+    await dbQuery(
+      `UPDATE dinowallet.wallets
+       SET balance_cached = balance_cached + $1
+       WHERE id = $2`,
+      [amount, userWallet.id], 3, client
+    );
+
+    //Ledger entries
+    // System debit
+    await dbQuery(
+      `INSERT INTO dinowallet.ledger
+       (id, order_id, wallet_id, debit_amount, credit_amount, created_at)
+       VALUES ($1, $2, $3, $4, 0, CURRENT_TIMESTAMP)`,
+      [uuid(), orderId, systemWallet.id, amount], 3, client
+    );
+
+    // User credit
+    await dbQuery(
+      `INSERT INTO dinowallet.ledger
+       (id, order_id, wallet_id, debit_amount, credit_amount, created_at)
+       VALUES ($1, $2, $3, 0, $4, CURRENT_TIMESTAMP)`,
+      [uuid(), orderId, userWallet.id, amount], 3, client
+    );
+
+    // Mark order completed
+    await dbQuery(
+      `UPDATE dinowallet.orders
+       SET status = 'completed'
+       WHERE id = $1`,
+      [orderId], 3, client
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      status: 200,
+      message: "Topup successful",
+      orderId,
+      creditedAmount: amount
+    };
+
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    err.status = err.status || 500;
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
@@ -617,6 +728,146 @@ export async function executeOrder(req: any, orderId: string): Promise<any>{
     err.status = err.status || 500;
     throw err;
   }finally{
+    client.release();
+  }
+}
+
+export async function convertAsset(req: any, body: any): Promise<any> {
+  const client: PoolClient = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const userId = req.user.sub;
+    const { toAssetId, amount } = body;
+
+    const BASE_ASSET_ID = 1;
+
+    if (!userId || !toAssetId || !amount || amount <= 0) {
+      throw { status: 400, message: "Invalid parameters" };
+    }
+
+    //Fetch conversion rate
+    const conversion = await dbQuery(
+      `SELECT rate FROM dinowallet.conversion 
+       WHERE from_asset_id = $1 AND to_asset_id = $2`,
+      [BASE_ASSET_ID, toAssetId], 3, client
+    );
+
+    if (conversion.length === 0) {
+      throw { status: 400, message: "Conversion not allowed" };
+    }
+
+    const rate = Number(conversion[0].rate);
+    const targetAmount = amount * rate;
+
+    // Lock base wallet
+    const baseWalletResult = await dbQuery(
+      `SELECT * FROM dinowallet.wallets
+       WHERE owner_type = 'user'
+       AND owner_id = $1
+       AND asset_id = $2
+       FOR UPDATE`,
+      [userId, BASE_ASSET_ID], 3, client
+    );
+
+    if (baseWalletResult.length === 0) {
+      throw { status: 400, message: "Base wallet not found" };
+    }
+
+    const baseWallet = baseWalletResult[0];
+
+    if (Number(baseWallet.balance_cached) < amount) {
+      throw { status: 400, message: "Insufficient credits" };
+    }
+
+    // Lock or create target wallet
+    let targetWalletResult = await dbQuery(
+      `SELECT * FROM dinowallet.wallets
+       WHERE owner_type = 'user'
+       AND owner_id = $1
+       AND asset_id = $2
+       FOR UPDATE`,
+      [userId, toAssetId], 3, client
+    );
+
+    let targetWallet;
+
+    if (targetWalletResult.length === 0) {
+
+      const created = await dbQuery(
+        `INSERT INTO dinowallet.wallets 
+         (owner_type, owner_id, asset_id, balance_cached)
+         VALUES ('user', $1, $2, 0)
+         RETURNING *`,
+        [userId, toAssetId], 3, client
+      );
+      targetWallet = created[0];
+    } else {
+      targetWallet = targetWalletResult[0];
+    }
+
+    // Create order
+    const orderId = uuid();
+
+    await dbQuery(
+      `INSERT INTO dinowallet.orders
+       (id, user_id, asset_id, type, amount, status)
+       VALUES ($1, $2, $3, 'spend', $4, 'processing')`,
+      [orderId, userId, BASE_ASSET_ID, amount], 3, client
+    );
+
+    // Update balances
+    await dbQuery(
+      `UPDATE dinowallet.wallets
+       SET balance_cached = balance_cached - $1
+       WHERE id = $2`,
+      [amount, baseWallet.id], 3, client
+    );
+
+    await dbQuery(
+      `UPDATE dinowallet.wallets
+       SET balance_cached = balance_cached + $1
+       WHERE id = $2`,
+      [targetAmount, targetWallet.id], 3, client
+    );
+
+    // Ledger entries
+    await dbQuery(
+      `INSERT INTO dinowallet.ledger
+       (id, order_id, wallet_id, debit_amount, credit_amount)
+       VALUES ($1, $2, $3, $4, 0)`,
+      [uuid(), orderId, baseWallet.id, amount], 3, client
+    );
+
+    await dbQuery(
+      `INSERT INTO dinowallet.ledger
+       (id, order_id, wallet_id, debit_amount, credit_amount)
+       VALUES ($1, $2, $3, 0, $4)`,
+      [uuid(), orderId, targetWallet.id, targetAmount], 3, client
+    );
+
+    // Complete order
+    await dbQuery(
+      `UPDATE dinowallet.orders
+       SET status = 'completed'
+       WHERE id = $1`,
+      [orderId], 3, client
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      status: 200,
+      message: "Conversion successful",
+      convertedAmount: targetAmount
+    };
+
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    err.status = err.status || 500;
+    throw err;
+  } finally {
     client.release();
   }
 }

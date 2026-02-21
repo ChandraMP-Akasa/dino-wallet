@@ -11,7 +11,7 @@ import {
   Request,
 } from "tsoa";
 import CreateUserRequest from "../dto/CreateUserDTO";
-import { executeOrder, getOrder, getWalletLedger, getWallets, makeOrder } from '../services/user.service';
+import { convertAsset, executeOrder, getOrder, getWalletLedger, getWallets, makeOrder, topup } from '../services/user.service';
 
 import { authenticate, createUser, getUserDetails } from '../services/user.service';
 import { RateLimit } from '../decorators/rateLimit';
@@ -21,6 +21,7 @@ import { RateLimit } from '../decorators/rateLimit';
 export class UserController extends Controller {
 
   @Post('/register')
+  @RateLimit({ capacity: 10, refillRate: 1}) //refill per second
   public async registerUser(@Body() requestBody: CreateUserRequest): Promise<object>{
     return createUser(requestBody);
   }
@@ -32,6 +33,13 @@ export class UserController extends Controller {
     return authenticate(request);
   }
 
+  @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
+  @Post('/topup')
+  public async topupCredits(@Request() request: any, @Body() topupRequest: any): Promise<object>{
+    return topup(request, topupRequest);
+  }
+
   //Get user, wallet and orders for a user
   @Security("BearerAuth")
   @Get("/profile")
@@ -39,7 +47,7 @@ export class UserController extends Controller {
     return getUserDetails(request);
   }
 
-  //Get wallets or order for an asset type
+  //Get wallets for an asset type
   @Security("BearerAuth")
   @Get("/wallets/{assetId}")
   public async getWalletforAsset(@Request() request: any, @Path() assetId: number): Promise<object>{
@@ -73,5 +81,11 @@ export class UserController extends Controller {
   @Get("/order/{orderId}/execute")
   public async runExecuteOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
     return executeOrder(request, orderId);
+  }
+
+  @Security("BearerAuth")
+  @Post("/wallet/purchase/asset/")
+  public async purchaseAsset(@Request() request: any, @Body() purchaseBody: any): Promise<object>{
+    return convertAsset(request, purchaseBody);
   }
 }
