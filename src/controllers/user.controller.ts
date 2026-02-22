@@ -42,6 +42,7 @@ export class UserController extends Controller {
 
   //Get user, wallet and orders for a user
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Get("/profile")
   public async getUserProfile(@Request() request: any): Promise<object>{
     return getUserDetails(request);
@@ -49,6 +50,7 @@ export class UserController extends Controller {
 
   //Get wallets for an asset type
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Get("/wallets/{assetId}")
   public async getWalletforAsset(@Request() request: any, @Path() assetId: number): Promise<object>{
     return getWallets(request, assetId);
@@ -57,6 +59,7 @@ export class UserController extends Controller {
 
   //Get ledger for a wallet
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Get("/wallets/{walletId}/ledger")
   public async getLedger(@Request() request: any, @Path() walletId: number): Promise<object>{
     return getWalletLedger(request, walletId);
@@ -71,8 +74,9 @@ export class UserController extends Controller {
   }
 
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Get("/order/{orderId}")
-  public async completeOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
+  public async fetchOrder(@Request() request: any, @Path() orderId: string): Promise<object>{
     return getOrder(request, orderId);
   }
 
@@ -84,6 +88,7 @@ export class UserController extends Controller {
   }
 
   @Security("BearerAuth")
+  @RateLimit({ capacity: 10, refillRate: 1})
   @Post("/wallet/purchase/asset/")
   public async purchaseAsset(@Request() request: any, @Body() purchaseBody: any): Promise<object>{
     return convertAsset(request, purchaseBody);
