@@ -32,7 +32,7 @@ class AppConfigService {
         database: this.getEnv("DB_NAME", ""),
         searchPath: this.getEnv("SEARCH_PATH", "dinowallet"),
         connectionLimit: this.getEnvNumber("DB_POOL_LIMIT", 20),
-        ssl: this.getEnv("SSL", "false").toLowerCase() === "true",
+        ssl: this.getEnv("SSL", "true").toLowerCase() === "true",
       },
       jwtSecret: this.getRequiredEnv("JWT_SECRET"),
       nodeEnv: this.getEnv("NODE_ENV", "local"),

@@ -1,4 +1,5 @@
 # **Dino Wallet Service**
+https://dino-wallet-pqa5.onrender.com/api/docs/
 
 A production-grade Internal Wallet Service built using Node.js, Express, TypeScript, TSOA, and PostgreSQL, designed to handle high-traffic virtual credit systems such as gaming platforms or loyalty applications.
 
