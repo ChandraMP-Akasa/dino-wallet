@@ -1,0 +1,360 @@
+{
+	"info": {
+		"_postman_id": "f7b3f139-2592-4bd8-9059-b9725e344e62",
+		"name": "Dino Wallet",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "20914714",
+		"_collection_link": "https://dark-spaceship-147122.postman.co/workspace/8a8de55e-3ebb-4533-88eb-9fcae7f52d9e/collection/20914714-f7b3f139-2592-4bd8-9059-b9725e344e62?action=share&source=collection_link&creator=20914714"
+	},
+	"item": [
+		{
+			"name": "POST Register a new USER",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"bhandari\",\n  \"password\": \"123\",\n  \"email\": \"bhandari@gmail.com\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/users/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET Authenticate a USER",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "username",
+							"value": "surya",
+							"type": "string"
+						},
+						{
+							"key": "password",
+							"value": "123",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/api/users/authenticate",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"authenticate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET User profile",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNzA1OTI0LCJleHAiOjE3NzE3MzQ3MjR9.r0m7Y9adIzc0cQREFIDbPMb9WnGgaVOmnu5nbGlKdWc",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/api/users/profile",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"profile"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET User Wallets by Asset ID",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNzA1OTI0LCJleHAiOjE3NzE3MzQ3MjR9.r0m7Y9adIzc0cQREFIDbPMb9WnGgaVOmnu5nbGlKdWc",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/api/users/wallets/2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"wallets",
+						"2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET User waller Ledger by",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMCIsInVzZXJuYW1lIjoibWFoaW1hIiwicm9sZSI6InVzZXIiLCJlbWFpbCI6Im1haGltYXZlcm1hQGdtYWlsLmNvbSIsImlhdCI6MTc3MTY2ODM5OCwiZXhwIjoxNzcxNjk3MTk4fQ.gb8-IVXeloabqm3XcwMMTHiApkaf6F3LfB-y1gsJHOQ",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/api/users/wallets/11/ledger",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"wallets",
+						"11",
+						"ledger"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Create a new Order for USER",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNjk3OTI3LCJleHAiOjE3NzE3MjY3Mjd9.3jgD6A4STh6OMPysUQfbeTBzBIYbhEAbUksmVhrNxTU",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"assetId\": 1,\n    \"type\": \"spend\",\n    \"amount\": 100,\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/users/order",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"order"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET order by ORDER ID",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNjk3OTI3LCJleHAiOjE3NzE3MjY3Mjd9.3jgD6A4STh6OMPysUQfbeTBzBIYbhEAbUksmVhrNxTU",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/api/users/order/89bb943a-e2fc-4326-9610-965323d626cb",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"order",
+						"89bb943a-e2fc-4326-9610-965323d626cb"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET Execute an order by ORDER ID",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNjk3OTI3LCJleHAiOjE3NzE3MjY3Mjd9.3jgD6A4STh6OMPysUQfbeTBzBIYbhEAbUksmVhrNxTU",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/api/users/order/89bb943a-e2fc-4326-9610-965323d626cb/execute",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"order",
+						"89bb943a-e2fc-4326-9610-965323d626cb",
+						"execute"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Purchase diffrent assets with base asset",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNzA1OTI0LCJleHAiOjE3NzE3MzQ3MjR9.r0m7Y9adIzc0cQREFIDbPMb9WnGgaVOmnu5nbGlKdWc",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"toAssetId\": 2,\n    \"amount\": 10\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/users/wallet/purchase/asset",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"wallet",
+						"purchase",
+						"asset"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Topup a User wallet",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMSIsInVzZXJuYW1lIjoic3VyeWEiLCJyb2xlIjoidXNlciIsImVtYWlsIjoic3VyeWFAZ21haWwuY29tIiwiaWF0IjoxNzcxNzA1OTI0LCJleHAiOjE3NzE3MzQ3MjR9.r0m7Y9adIzc0cQREFIDbPMb9WnGgaVOmnu5nbGlKdWc",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"amount\": 100\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/api/users/topup",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"api",
+						"users",
+						"topup"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
