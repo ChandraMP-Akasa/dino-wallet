@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 interface DbConfig {
+  connectionString: string,
   host: string;
   port: number;
   user: string;
@@ -25,6 +26,7 @@ class AppConfigService {
   constructor() {
     this.config = {
       db: {
+        connectionString: this.getEnv("DATABASE_URL", ""),
         host: this.getEnv("DB_HOST", "localhost"),
         port: this.getEnvNumber("DB_PORT", 5432),
         user: this.getEnv("DB_USERNAME", ""),

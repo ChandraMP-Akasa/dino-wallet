@@ -1,21 +1,35 @@
 // src/config/db.ts
 import configService from "../config/app-config";
 import { Pool, PoolClient } from "pg";
+import dns from 'dns'
+
+// Force IPv4 (Fixes Render + Supabase IPv6 issue)
+dns.setDefaultResultOrder("ipv4first");
 
 const dbConfig = configService.getDbConfig();
 
-const pool = new Pool({
-  host: dbConfig.host,
-  port: dbConfig.port,
-  user: dbConfig.user,
-  password: dbConfig.password,
-  database: dbConfig.database,
-  max: dbConfig.connectionLimit || 20,   
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  ssl: dbConfig.ssl || true, 
-  options: `-c search_path=${dbConfig.searchPath || "dinowallet"}`,
-});
+const pool = dbConfig.connectionString
+  ? new Pool({
+      connectionString: dbConfig.connectionString,
+      ssl: {
+        rejectUnauthorized: false, 
+      },
+    })
+  : new Pool({
+      host: dbConfig.host,
+      port: dbConfig.port,
+      user: dbConfig.user,
+      password: dbConfig.password,
+      database: dbConfig.database,
+      max: dbConfig.connectionLimit || 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+      ssl: dbConfig.ssl
+        ? { rejectUnauthorized: false }
+        : false,
+      options: `-c search_path=${dbConfig.searchPath || "dinowallet"}`,
+    });
+
 
 pool.on("connect", () => {
   console.log("PostgreSQL connected");
