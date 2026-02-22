@@ -31,7 +31,8 @@ const pool = dbConfig.connectionString
     });
 
 
-pool.on("connect", () => {
+pool.on("connect", async (client) => {
+  await client.query(`SET search_path TO ${dbConfig.searchPath || "dinowallet"}`);
   console.log("PostgreSQL connected");
 });
 
