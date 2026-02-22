@@ -8,6 +8,10 @@ A production-grade Internal Wallet Service built using Node.js, Express, TypeScr
     🔗 localhost Swagger URL
     👉 http://localhost/api/docs/
 
+    🔗 Postman Collection V2 -
+    👉 dinowallet.postman_collection.json
+
+
 # **How To Run Locally**
 
     run in docker container: docker compose up --build 
