@@ -48,3 +48,5 @@ src/auth/keys/jwt-secret.ts
 *.key
 *.crt
 
+readme.txt
+
