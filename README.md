@@ -34,7 +34,7 @@ A production-grade Internal Wallet Service built using Node.js, Express, TypeScr
                         } 
 
 # Database
-    ![ER Diagram](./screensnaps/er-diagram.png)
+![ER Diagram](./screensnaps/er-diagram.png)
 
 # Architecture Overview Stack
 
