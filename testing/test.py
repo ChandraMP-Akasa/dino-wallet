@@ -2,6 +2,8 @@ import requests
 import base64
 import threading
 import time
+import json
+import sys
 
 URL = "http://localhost:8000/api/users/authenticate"
 USERNAME = "chandra"
@@ -56,11 +58,21 @@ def rate_limiter_test(total_requests=20):
 
     duration = time.time() - start
 
-    print("\n===== RESULTS =====")
-    print(f"Total Time: {duration:.2f}s")
-    print(f"Success: {success}")
-    print(f"Rate Limited: {rate_limited}")
-    print(f"Other Errors: {other_errors}")
+    return {
+        "success": success,
+        "rate_limited": rate_limited,
+        "other_errors": other_errors,
+        "duration": round(duration, 2)
+    }
 
 if __name__ == "__main__":
-    rate_limiter_test(100)
+    total_requests = 100
+    if len(sys.argv) > 1:
+        try:
+            total_requests = int(sys.argv[1])
+        except ValueError:
+            pass
+    
+    result = rate_limiter_test(total_requests)
+    print("\n===== RESULTS =====")
+    print(json.dumps(result))
