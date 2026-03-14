@@ -50,3 +50,4 @@ src/auth/keys/jwt-secret.ts
 
 readme.txt
 
+.cursor/
